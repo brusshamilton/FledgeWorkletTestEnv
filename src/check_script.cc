@@ -145,7 +145,8 @@ void CheckGenerateBidOutput(v8::Local<v8::Value> generate_bid_result) {
 }
 
 void RunScriptInContext(v8::Isolate* isolate, v8::Local<v8::Context> context,
-                        std::string script_path, const std::string& script_str) {
+                        std::string script_path, const std::string& script_str,
+                        bool freeze_context) {
   v8::TryCatch try_catch(isolate);
 
   // Create a string containing the JavaScript source code.
@@ -197,14 +198,16 @@ void RunScriptInContext(v8::Isolate* isolate, v8::Local<v8::Context> context,
     return;
   }
 
-  bool success = context->DeepFreeze().IsJust();
-  if (try_catch.HasCaught()) {
-    std::cout << FormatExceptionMessage(context, try_catch.Message()) << std::endl;
-    return;
-  }
-  if (!success) {
-    std::cout << "Unknown error freezing the context" << std::endl;
-    return;
+  if (freeze_context) {
+    bool success = context->DeepFreeze().IsJust();
+    if (try_catch.HasCaught()) {
+      std::cout << FormatExceptionMessage(context, try_catch.Message()) << std::endl;
+      return;
+    }
+    if (!success) {
+      std::cout << "Unknown error freezing the context" << std::endl;
+      return;
+    }
   }
 
   v8::Local<v8::String> v8_function_name =
@@ -245,10 +248,18 @@ int main(int argc, char* argv[]) {
   v8::V8::InitializePlatform(platform.get());
   v8::V8::Initialize();
 
-  if (argc != 2) {
-    printf("Usage: %s <path_to_script>\n", argv[0]);
+  if (argc < 2 || argc > 3) {
+    printf("Usage: %s <path_to_script> [true|false]\n", argv[0]);
+    printf("  where <path_to_script> is the path to your script\n");
+    printf("  and [true|false] indicates whether to try to freeze the context.\n");
     return 0;
   }
+
+  bool freeze_context = false;
+  if (argc >= 3 && std::string(argv[2]) == "true") {
+    freeze_context = true;
+  }
+
 
   // load the script file.
   std::string script_str;
@@ -281,7 +292,7 @@ int main(int argc, char* argv[]) {
     v8::Context::Scope context_scope(context);
 
     // Run the script.
-    RunScriptInContext(isolate, context, argv[1], script_str);
+    RunScriptInContext(isolate, context, argv[1], script_str, freeze_context);
   }
 
   // Dispose the isolate and tear down V8.
