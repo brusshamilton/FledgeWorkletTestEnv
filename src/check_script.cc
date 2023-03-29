@@ -59,6 +59,7 @@ std::string FormatExceptionMessage(
 v8::Local<v8::Value> CompileAndRunChecked(v8::Isolate* isolate,
                                           v8::Local<v8::Context> context,
                                           std::string script_str) {
+  v8::Context::Scope context_scope(context);
   v8::TryCatch tc(isolate);
   v8::Local<v8::String> v8_script_str;
   if (!v8::String::NewFromUtf8(isolate, script_str.data(),
@@ -287,6 +288,13 @@ int main(int argc, char* argv[]) {
 
     // Create a new context.
     v8::Local<v8::Context> context = v8::Context::New(isolate);
+
+    auto result =
+      context->Global()->Delete(context, v8::String::NewFromUtf8Literal(isolate, "Date"));
+    if (result.IsNothing()) {
+      std::cerr << "Could not remove `Date` from context" << std::endl;
+      return 0;
+    }
 
     // Enter the context for compiling and running the hello world script.
     v8::Context::Scope context_scope(context);
