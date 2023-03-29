@@ -90,8 +90,32 @@ v8::Local<v8::Value> CompileAndRunChecked(v8::Isolate* isolate,
   return result;
 }
 
-void AddBindingsToContext(v8::Local<v8::Context> context) {
-  // TODO: Add suitable fake bindings.
+void AddBindingsToContext(v8::Isolate* isolate, v8::Local<v8::Context> context) {
+  // TODO: Have fake bindings check args and log errors.
+  CompileAndRunChecked(isolate, context,
+  R"(
+    globalThis.forDebuggingOnly = {
+      reportAdAuctionLoss: function(url) {},
+      reportAdAuctionWin: function(url) {},
+    };
+    globalThis.privateAggregation = {
+      sendHistogramReport: function(obj) {},
+      reportContributionForEvent: function(event_type, obj) {},
+      enableDebugMode: function(id = null) {},
+    };
+    globalThis.registerAdBeacon = function(obj) {};
+    globalThis.sendReportTo = function(url) {};
+    globalThis.setBid = function(obj) {};
+    globalThis.setPriority = function(number) {};
+    globalThis.setPrioritySignalsOverride = function(key, number) {};
+    globalThis.sharedStorage = {
+      set: function(key, value, options = null){},
+      append: function(key, value){},
+      delete: function(key){},
+      clear: function(){},
+    };
+  )");
+
 }
 
 std::vector<v8::Local<v8::Value> > BuildFakeGenerateBidArgs(v8::Isolate* isolate,
@@ -215,7 +239,7 @@ void RunScriptInContext(v8::Isolate* isolate, v8::Local<v8::Context> context,
     return;
   }
 
-  AddBindingsToContext(context);
+  AddBindingsToContext(isolate, context);
   if (try_catch.HasCaught()) {
     std::cout << FormatExceptionMessage(context, try_catch.Message()) << std::endl;
     return;
