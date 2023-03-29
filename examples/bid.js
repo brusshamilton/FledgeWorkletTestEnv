@@ -4,5 +4,10 @@
 
 function generateBid(interestGroup, auctionSignals, perBuyerSignals, trustedBiddingSignals,
       browserSignals) {
+  console.log("interestGroup: " + JSON.stringify(interestGroup));
+  console.log("auctionSignals: " + JSON.stringify(auctionSignals));
+  console.log("perBuyerSignals: " + JSON.stringify(perBuyerSignals));
+  console.log("trustedBiddingSignals: " + JSON.stringify(trustedBiddingSignals));
+  console.log("browserSignals: " + JSON.stringify(browserSignals));
   return {'render': interestGroup.ads[0].renderUrl, 'bid': 1};
 }

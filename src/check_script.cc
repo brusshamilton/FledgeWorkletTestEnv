@@ -103,7 +103,13 @@ std::vector<v8::Local<v8::Value> > BuildFakeGenerateBidArgs(v8::Isolate* isolate
   // interestGroup
   result.push_back(CompileAndRunChecked(isolate, context,
     R"(
-      const interestGroup = { "owner": "https://foo.com", "name": "bar", "useBiddingSignalsPrioritization": false, "biddingLogicUrl": "https://foo.com/bid.js", "ads": [{ "renderUrl": "https://foo.com", "metadata": ""}]};
+      const interestGroup = {
+         owner: "https://foo.com",
+         name: "bar",
+         useBiddingSignalsPrioritization: false,
+         biddingLogicUrl: "https://foo.com/bid.js",
+         ads: [{ renderUrl: "https://foo.com", metadata: ""}],
+      };
       interestGroup
     )"
   ));
@@ -116,15 +122,28 @@ std::vector<v8::Local<v8::Value> > BuildFakeGenerateBidArgs(v8::Isolate* isolate
     )"));
 
   // perBuyerSignals
-  result.push_back(CompileAndRunChecked(isolate, context, "{}"));
+  result.push_back(CompileAndRunChecked(isolate, context,
+    R"(
+      const perBuyerSignals = {};
+      perBuyerSignals
+    )"));
 
   // trustedSignals
-  result.push_back(CompileAndRunChecked(isolate, context, "{}"));
+  result.push_back(CompileAndRunChecked(isolate, context,
+    R"(
+      const trustedSignals = {};
+      trustedSignals
+    )"));
 
   // browserSignals
   result.push_back(CompileAndRunChecked(isolate, context,
     R"(
-      const browserSignals = {"topWindowHostname": "https://bar.com", "seller": "https://bar.com", "joinCount": 5, "bidCount": 10};
+      const browserSignals = {
+        topWindowHostname: "https://bar.com",
+        seller: "https://bar.com",
+        joinCount: 5,
+        bidCount: 10,
+      };
       browserSignals
     )"));
 
@@ -148,6 +167,9 @@ void CheckGenerateBidOutput(v8::Local<v8::Value> generate_bid_result) {
 void RunScriptInContext(v8::Isolate* isolate, v8::Local<v8::Context> context,
                         std::string script_path, const std::string& script_str,
                         bool freeze_context) {
+  // Enter the context for compiling and running the script.
+  v8::Context::Scope context_scope(context);
+
   v8::TryCatch try_catch(isolate);
 
   // Create a string containing the JavaScript source code.
@@ -241,6 +263,12 @@ void RunScriptInContext(v8::Isolate* isolate, v8::Local<v8::Context> context,
   CheckGenerateBidOutput(result.ToLocalChecked());
 }
 
+void ConsoleLog(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  for (int idx = 0; idx < args.Length(); idx++) {
+    std::cout << FormatValue(args.GetIsolate(), args[idx]) << std::endl;
+  }
+}
+
 int main(int argc, char* argv[]) {
   // Initialize V8.
   v8::V8::InitializeICUDefaultLocation(argv[0]);
@@ -289,15 +317,21 @@ int main(int argc, char* argv[]) {
     // Create a new context.
     v8::Local<v8::Context> context = v8::Context::New(isolate);
 
-    auto result =
-      context->Global()->Delete(context, v8::String::NewFromUtf8Literal(isolate, "Date"));
-    if (result.IsNothing()) {
-      std::cerr << "Could not remove `Date` from context" << std::endl;
-      return 0;
-    }
+    {
+      // Enter the context for compiling and running the hello world script.
+      v8::Context::Scope context_scope(context);
+      auto result =
+        context->Global()->Delete(context, v8::String::NewFromUtf8Literal(isolate, "Date"));
+      if (result.IsNothing()) {
+        std::cerr << "Could not remove `Date` from context" << std::endl;
+        return 0;
+      }
 
-    // Enter the context for compiling and running the hello world script.
-    v8::Context::Scope context_scope(context);
+      // Overwrite console.log().
+      v8::Local<v8::Function> v8_function = v8::Function::New(context, &ConsoleLog).ToLocalChecked();
+      v8::Local<v8::Value> console = context->Global()->Get(context, v8::String::NewFromUtf8Literal(isolate, "console")).ToLocalChecked();
+      v8::Local<v8::Object>::Cast(console)->Set(context, v8::String::NewFromUtf8Literal(isolate, "log"), v8_function).Check();
+    }
 
     // Run the script.
     RunScriptInContext(isolate, context, argv[1], script_str, freeze_context);
