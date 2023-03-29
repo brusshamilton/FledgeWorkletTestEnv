@@ -1,0 +1,7 @@
+
+cc_binary(
+    name = "check_script",
+    deps = ["@@v8//:v8_noicu"],
+    srcs = ["src/check_script.cc"],
+)
+
